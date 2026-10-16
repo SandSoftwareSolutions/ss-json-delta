@@ -1,0 +1,43 @@
+{
+  "name": "@sandsoftwaresolutions/json-delta",
+  "version": "0.1.0",
+  "description": "JSON Patch (RFC 6902): the difference between two JSON documents, and applying it. Immutable, all-or-nothing, no prototype pollution.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js"
+    }
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "pack:check": "npm pack --dry-run"
+  },
+  "keywords": [
+    "json",
+    "patch",
+    "diff",
+    "rfc6902"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SandSoftwareSolutions/ss-json-delta.git"
+  },
+  "bugs": {
+    "url": "https://github.com/SandSoftwareSolutions/ss-json-delta/issues"
+  },
+  "homepage": "https://github.com/SandSoftwareSolutions/ss-json-delta#readme",
+  "publishConfig": {
+    "access": "public"
+  }
+}
