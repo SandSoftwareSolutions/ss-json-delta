@@ -45,5 +45,5 @@ diff(oldOrder, newOrder, { arrayKey: "id" });   // uses move / add / remove inst
 
 ## Know that
 
-- Arrays are compared by position (unless you give `arrayKey`): changing the first item of a list of 1000 gives one `replace`, but inserting at the front without `arrayKey` shifts everything and gives many replacements.
+- Arrays are compared by position (unless you give `arrayKey`, which is used for arrays where every item has a distinct string, number, boolean or null id; duplicate or missing ids fall back to positions): changing the first item of a list of 1000 gives one `replace`, but inserting at the front without `arrayKey` shifts everything and gives many replacements.
 - Only JSON values: no `undefined`, Dates or functions. Convert first.

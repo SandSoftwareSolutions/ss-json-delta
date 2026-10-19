@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { test } from "node:test";
 
 import { apply, diff, equal, escapePointer, parsePointer, PatchError, summarize } from "./src/index.js";
@@ -129,4 +130,60 @@ test("pointers and summaries", () => {
   assert.equal(escapePointer("a/b~c"), "a~1b~0c");
   assert.throws(() => parsePointer("a/b"), PatchError);
   assert.equal(summarize([{ op: "replace", path: "/name", value: 1 }, { op: "remove", path: "/phone" }, { op: "add", path: "/tags/0", value: "x" }]), "changed name, removed phone, added tags/0");
+});
+
+test("arrayKey with duplicate or complex ids falls back to positions and the patch still gives the new document", () => {
+  const cases = [
+    [[{ id: 3, v: 1 }, { id: 5, v: 1 }, { id: 4, v: 2 }, { id: 3, v: 1 }, { id: 5, v: 0 }], [{ id: 4, v: 2 }, { id: 3, v: 1 }, { id: 5, v: 0 }, { id: 3, v: 1 }]],
+    [[{ id: 2, v: 0 }, { id: 1, v: 1 }, { id: 4, v: 0 }, { id: 2, v: 0 }], [{ id: 2, v: 9 }, { id: 1, v: 1 }, { id: 4, v: 9 }, { id: 2, v: 0 }]],
+    [[{ id: { a: 1 } }, { id: { a: 2 } }], [{ id: { a: 2 } }, { id: { a: 1 } }]]
+  ];
+  for (const [before, after] of cases) assert.deepEqual(apply({ l: before }, diff({ l: before }, { l: after }, { arrayKey: "id" })), { l: after });
+});
+
+test("adding to a document whose parent is a number, string or null is a PatchError, not a TypeError", () => {
+  for (const doc of [5, "s", null, true]) assert.throws(() => apply(doc, [{ op: "add", path: "/a", value: 1 }]), PatchError);
+});
+
+test("random documents: apply(a, diff(a, b)) equals b, with and without arrayKey (plus the patch round-trips through JSON)", () => {
+  const pick = (n) => randomBytes(1)[0] % n;
+  const keys = ["a", "b", "c", "/", "~", "0", "id", "toString", "constructor"];
+  const gen = (depth = 0) => {
+    switch (pick(depth > 3 ? 4 : 7)) {
+      case 0: return null;
+      case 1: return pick(3);
+      case 2: return ["a", "~", "/", ""][pick(4)];
+      case 3: return pick(2) === 0;
+      case 4: return Array.from({ length: pick(5) }, () => gen(depth + 1));
+      default: {
+        const o = {};
+        for (let i = pick(5); i > 0; i--) o[keys[pick(keys.length)]] = gen(depth + 1);
+        return o;
+      }
+    }
+  };
+  const mutate = (v, depth = 0) => {
+    if (pick(4) === 0) return gen(depth);
+    if (Array.isArray(v)) {
+      const r = v.map((x) => mutate(x, depth + 1));
+      if (pick(3) === 0) r.splice(pick(r.length + 1), pick(2), gen(depth + 1));
+      if (pick(5) === 0) r.reverse();
+      return r;
+    }
+    if (v && typeof v === "object") {
+      const o = {};
+      for (const k of Object.keys(v)) if (pick(6)) o[k] = mutate(v[k], depth + 1);
+      if (pick(3) === 0) o[keys[pick(keys.length)]] = gen(depth + 1);
+      return o;
+    }
+    return v;
+  };
+  for (let i = 0; i < 1500; i++) {
+    const a = gen();
+    const b = pick(5) ? mutate(a) : gen();
+    for (const options of [{}, { arrayKey: "id" }]) {
+      const patch = JSON.parse(JSON.stringify(diff(a, b, options)));
+      assert.ok(equal(apply(a, patch), b), JSON.stringify({ a, b, options, patch }));
+    }
+  }
 });

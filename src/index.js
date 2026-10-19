@@ -36,7 +36,8 @@ export function equal(a, b) {
  * `before` into `after`. Objects are compared by key. Arrays are compared by position, except that items added or removed at the
  * end are reported as such; for lists of records, compare by id yourself first (`arrayKey` below does this for you).
  * Option `arrayKey`: a property name that identifies the items of arrays of objects (`"id"`), so a reordered or middle-inserted list
- * gives small operations instead of many replacements.
+ * gives small operations instead of many replacements. It is used for arrays where every item has a distinct string, number, boolean or
+ * null id; any other array (a missing id, a duplicate id, an object as id) is compared by position.
  */
 export function diff(before, after, { arrayKey } = {}) {
   const ops = [];
@@ -55,7 +56,7 @@ function walk(a, b, path, ops, arrayKey) {
     return;
   }
   if (Array.isArray(a) && Array.isArray(b)) {
-    if (arrayKey && a.every((x) => isObject(x) && Object.hasOwn(x, arrayKey)) && b.every((x) => isObject(x) && Object.hasOwn(x, arrayKey))) {
+    if (arrayKey && hasUniqueKeys(a, arrayKey) && hasUniqueKeys(b, arrayKey)) {
       byKey(a, b, path, ops, arrayKey);
       return;
     }
@@ -66,6 +67,20 @@ function walk(a, b, path, ops, arrayKey) {
     return;
   }
   ops.push({ op: "replace", path, value: b });
+}
+
+// Every item is an object with a plain (string, number, boolean or null) value for `key`, and no two items share that value.
+// With duplicate or complex keys the items cannot be matched one to one, so the arrays are compared by position instead.
+function hasUniqueKeys(array, key) {
+  const seen = new Set();
+  for (const x of array) {
+    if (!isObject(x) || !Object.hasOwn(x, key)) return false;
+    const id = x[key];
+    if (id !== null && typeof id === "object") return false;
+    if (seen.has(id)) return false;
+    seen.add(id);
+  }
+  return true;
 }
 
 function byKey(a, b, path, ops, key) {
@@ -131,6 +146,7 @@ function addAt(doc, pointer, value, op, index) {
   const parent = resolveParent(doc, segments, { ...op, path: pointer }, index);
   const last = segments[segments.length - 1];
   if (FORBIDDEN.has(last)) throw new PatchError(`the path segment "${last}" is not allowed`, { op, index });
+  if (parent === null || typeof parent !== "object") throw new PatchError(`the path ${JSON.stringify(pointer)} does not exist (the parent is not an object or array)`, { op, index });
   if (Array.isArray(parent)) parent.splice(arrayIndex(parent, last, true, op, index), 0, clone(value));
   else Object.defineProperty(parent, last, { value: clone(value), enumerable: true, writable: true, configurable: true });
   return doc;
