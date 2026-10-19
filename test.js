@@ -187,3 +187,15 @@ test("random documents: apply(a, diff(a, b)) equals b, with and without arrayKey
     }
   }
 });
+
+test("a path through an own '__proto__' key of the document is refused, and indexes at or beyond the end of an array are errors for remove, replace, test and move", () => {
+  const doc = JSON.parse('{"__proto__":{"a":1},"list":[1,2]}');
+  assert.throws(() => apply(doc, [{ op: "add", path: "/__proto__/b", value: 2 }]), PatchError);
+  assert.throws(() => apply(doc, [{ op: "replace", path: "/__proto__/a", value: 2 }]), PatchError);
+  assert.equal({}.b, undefined);
+  for (const op of [{ op: "remove", path: "/list/2" }, { op: "replace", path: "/list/2", value: 0 }, { op: "test", path: "/list/2", value: 0 }, { op: "move", from: "/list/2", path: "/x" }, { op: "copy", from: "/list/2", path: "/x" }]) {
+    assert.throws(() => apply(doc, [op]), PatchError, JSON.stringify(op));
+  }
+  assert.deepEqual(apply({ list: [1, 2] }, [{ op: "add", path: "/list/2", value: 3 }]), { list: [1, 2, 3] });
+  assert.throws(() => apply({ a: { b: 1 } }, [{ op: "move", from: "/a", path: "/a/b/c" }]), /into itself/);
+});
