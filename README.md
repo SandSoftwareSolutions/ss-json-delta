@@ -10,6 +10,8 @@ Find out what changed between two JSON documents, as a standard **JSON Patch** (
 npm install @sandsoftwaresolutions/json-delta
 ```
 
+Works with `import` and `require()`, and ships TypeScript types for both.
+
 ## Usage
 
 ```js
